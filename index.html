@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Painel • Gôndola Geral (Evolução)</title>
+  <link rel="icon" href="assets/logo.jpg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="bg"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <img class="brand__logo" src="assets/logo.jpg" alt="DelMORO • DelNorte • Casa Aurora" />
+      <div class="brand__meta">
+        <div class="brand__title">Gôndola Geral</div>
+        <div class="brand__subtitle">Clique na loja para ver os produtos.</div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <label class="btn btn--ghost">
+        <input id="fileInput" type="file" accept=".xlsx,.xls" hidden />
+        📥 Importar XLSX
+      </label>
+
+      <button id="btnAddStore" class="btn btn--ghost" title="Adicionar loja ao cadastro">➕ Adicionar loja</button>
+      <button id="btnReload" class="btn btn--ghost" title="Recarregar do Firebase">🔄 Recarregar</button>
+      <button id="btnPDF" class="btn">🧾 Salvar PDF</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="status card" id="statusCard" style="display:none;">
+      <div class="status__label">STATUS</div>
+      <div class="status__text" id="statusText">—</div>
+    </section>
+
+    <section class="summary">
+      <div class="pill">
+        <div class="pill__k">Última importação</div>
+        <div class="pill__v" id="lastImport">—</div>
+      </div>
+      <div class="pill">
+        <div class="pill__k">Snapshots carregados</div>
+        <div class="pill__v" id="snapCount">—</div>
+      </div>
+      <div class="pill">
+        <div class="pill__k">Valor custo bruto (último)</div>
+        <div class="pill__v" id="lastValue">—</div>
+      </div>
+      <div class="pill">
+        <div class="pill__k">Lojas zeradas (último)</div>
+        <div class="pill__v" id="lastZero">—</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="toolbar">
+        <div class="field">
+          <label>Buscar loja</label>
+          <input id="searchInput" type="text" placeholder="Ex: 001-AFL" />
+        </div>
+        <div class="field">
+          <label>Snapshots visíveis</label>
+          <select id="rangeSelect">
+            <option value="6">Últimos 6</option>
+            <option value="10" selected>Últimos 10</option>
+            <option value="15">Últimos 15</option>
+            <option value="25">Últimos 25</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Ordenação (base: último dia)</label>
+          <select id="sortSelect">
+            <option value="qtyDesc" selected>Maior estoque → menor</option>
+            <option value="qtyAsc">Menor → maior (zeradas embaixo)</option>
+            <option value="nameAsc">Loja A→Z</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Filtro</label>
+          <select id="filterSelect">
+            <option value="all" selected>Todas</option>
+            <option value="nonzero">Somente com estoque</option>
+            <option value="zero">Somente zeradas</option>
+            <option value="up">Somente aumentou (último vs anterior)</option>
+            <option value="down">Somente diminuiu (último vs anterior)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="tableWrap">
+        <table class="matrix" id="matrixTable">
+          <thead id="thead"></thead>
+          <tbody id="tbody"></tbody>
+          <tfoot id="tfoot"></tfoot>
+        </table>
+      </div>
+
+      <div class="note">
+        • Cabeçalho usa a data da importação.<br/>
+        • Loja ausente no XLSX = 0 (verde) e vai para o final.<br/>
+        • Clique em uma loja para ver os produtos (do último snapshot).
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal Produtos -->
+  <div class="modal" id="prodModal" style="display:none;">
+    <div class="modal__backdrop" id="prodBackdrop"></div>
+    <div class="modal__card modal__card--wide">
+      <div class="modal__title" id="prodTitle">Produtos</div>
+      <div class="modal__desc" id="prodSub">—</div>
+
+      <div class="prodGrid">
+        <div class="pill pill--small">
+          <div class="pill__k">Estoque (loja)</div>
+          <div class="pill__v" id="prodTotQty">—</div>
+        </div>
+        <div class="pill pill--small">
+          <div class="pill__k">Valor custo bruto</div>
+          <div class="pill__v" id="prodTotVal">—</div>
+        </div>
+        <div class="pill pill--small">
+          <div class="pill__k">Pendências (entrada)</div>
+          <div class="pill__v" id="prodTotPend">—</div>
+        </div>
+        <div class="pill pill--small">
+          <div class="pill__k">Últ. entrada (mais próxima)</div>
+          <div class="pill__v" id="prodMinDias">—</div>
+        </div>
+      </div>
+
+      <div class="tableWrap" style="margin-top:10px;">
+        <table class="prodTable">
+          <thead>
+            <tr>
+              <th>Cód.</th>
+              <th>Produto</th>
+              <th class="num">Qtd</th>
+              <th class="num">pedido.Pend</th>
+              <th class="num">Dias. ult entrada</th>
+              <th class="num">Valor custo</th>
+            </tr>
+          </thead>
+          <tbody id="prodBody"></tbody>
+        </table>
+      </div>
+
+      <div class="modal__actions">
+        <button class="btn btn--ghost" id="btnProdPDF">🧾 PDF desta loja</button>
+        <button class="btn btn--ghost" id="btnProdClose">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Add Store -->
+  <div class="modal" id="storeModal" style="display:none;">
+    <div class="modal__backdrop" id="storeBackdrop"></div>
+    <div class="modal__card">
+      <div class="modal__title">Adicionar loja</div>
+      <div class="modal__desc">Adiciona a loja ao cadastro. Se ela não vier no XLSX, ficará zerada.</div>
+      <div class="modal__row">
+        <div class="field" style="min-width:260px;">
+          <label>Código / Nome da loja</label>
+          <input id="storeInput" type="text" placeholder="Ex: 001-AFL" />
+        </div>
+      </div>
+      <div class="modal__actions">
+        <button class="btn btn--ghost" id="btnCancel">Cancelar</button>
+        <button class="btn" id="btnSaveStore">Salvar</button>
+      </div>
+      <div class="modal__hint" id="modalHint"></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.31/dist/jspdf.plugin.autotable.min.js"></script>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
