@@ -174,7 +174,7 @@ function getAllStoresUnion() {
   return Array.from(setAll).sort((a,b)=>a.localeCompare(b));
 }
 
-function getQty(snap, store) { return snap?.stores?.[store]?.qty ?? 0; }
+function getQty(snap, store) { return (snap?.products?.[store] || []).length; }
 function getValor(snap, store) { return snap?.stores?.[store]?.valor ?? 0; }
 function getPend(snap, store) { return snap?.stores?.[store]?.pending ?? 0; }
 function getMinDias(snap, store) { return snap?.stores?.[store]?.minDias ?? null; }
@@ -198,7 +198,17 @@ function computeSummary(stores) {
   }
 
   els.lastImport.textContent = last ? formatFull(last.ts) : "—";
-  els.snapCount.textContent = String(state.visible.length);
+
+  // Conta SKUs únicos (quantidade de produtos) em vez de somar unidades em estoque
+  let totalSkus = 0;
+  if (last) {
+    for (const st of stores) {
+      const prods = last.products?.[st] || [];
+      totalSkus += prods.length;
+    }
+  }
+  els.snapCount.textContent = last ? fmtInt.format(totalSkus) : "—";
+
   els.lastValue.textContent = last ? fmtBRL.format(totalValor) : "—";
   els.lastZero.textContent = last ? String(zeros) : "—";
   return { last, prev };
@@ -262,7 +272,7 @@ function renderTable() {
   h1 += "</tr>";
 
   let h2 = "<tr>";
-  for (let i=0; i<state.visible.length; i++) h2 += "<th class='subHead'>Δ</th><th class='subHead'>Qtd</th>";
+  for (let i=0; i<state.visible.length; i++) h2 += "<th class='subHead'>Δ</th><th class='subHead'>SKU</th>";
   h2 += "</tr>";
 
   els.thead.innerHTML = h1 + h2;
@@ -446,7 +456,7 @@ function buildStorePDF(store) {
 
   doc.addImage(LOGO_BASE64_JPG, "JPEG", 32, 24, 210, 50);
   doc.setFont("helvetica","bold"); doc.setFontSize(15);
-  doc.text("Embalagens Inativas — Detalhe por Loja", 32, 92);
+  doc.text("Gondola Geral — Detalhe por Loja", 32, 92);
 
   doc.setFont("helvetica","bold"); doc.setFontSize(12);
   doc.text("Loja: " + store, 32, 114);
@@ -493,7 +503,7 @@ function buildStorePDF(store) {
 
   const iso = new Date().toISOString().slice(0,10);
   const safe = String(store).replace(/[^\w\-]+/g, "_");
-  doc.save(`embalagens-inativas_${safe}_${iso}.pdf`);
+  doc.save(`Gondola Geral_${safe}_${iso}.pdf`);
 }
 
 function buildPDF() {
@@ -505,7 +515,7 @@ function buildPDF() {
 
   doc.addImage(LOGO_BASE64_JPG, "JPEG", 28, 18, 220, 52);
   doc.setFont("helvetica","bold"); doc.setFontSize(15);
-  doc.text("Embalagens Inativas — Estoque em Unidade (Histórico)", 270, 42);
+  doc.text("Gondola Geral", 270, 42);
   doc.setFont("helvetica","normal"); doc.setFontSize(10);
   const last = state.visible[state.visible.length-1];
   doc.text("Última importação: " + (last ? formatFull(last.ts) : "—"), 270, 60);
@@ -581,7 +591,7 @@ function buildPDF() {
   });
 
   const iso = new Date().toISOString().slice(0,10);
-  doc.save("embalagens-inativas_matriz_" + iso + ".pdf");
+  doc.save("Gondola-Geral-" + iso + ".pdf");
 }
 
 function wire() {
